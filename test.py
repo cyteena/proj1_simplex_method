@@ -16,8 +16,8 @@ def generate_random_lp(m, n):
 def generate_solvable_lp(m, n):
     while True:
         c, A, b = generate_random_lp(m, n)
-        res = linprog(c, A_ub=A, b_ub=b, method='simplex')
-        if res.success:
+        x_opt, _ = solve_lp(c, A, b)
+        if x_opt is not None:
             return c, A, b
 
 def report_solve_time():

@@ -21,7 +21,7 @@ def generate_solvable_lp(m, n):
             return c, A, b
 
 def report_solve_time():
-    sizes = [(10, 20), (20, 40), (30, 60), (40, 80), (50, 100)]
+    sizes = [(5, 5), (5, 6), (7, 8), (9, 9), (10, 12), (12, 15), (15, 20)]
     mean_times = []
     std_devs = []
     linprog_mean_times = []

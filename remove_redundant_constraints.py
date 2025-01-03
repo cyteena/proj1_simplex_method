@@ -51,8 +51,8 @@ def remove_redundant_constraints(A, b, tol=1e-9):
             nonzero_idx.append(i)
 
     # Extract the filtered constraints
-    A_filtered = A[nonzero_idx, :]
-    b_filtered = b[nonzero_idx]
+    A_filtered = A_work[nonzero_idx, :]
+    b_filtered = b_work[nonzero_idx]
 
     return A_filtered, b_filtered
 
