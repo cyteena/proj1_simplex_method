@@ -182,52 +182,9 @@ if __name__ == "__main__":
     x_opt, obj_val = solve_lp(c, A, b)
     print("Solution:", x_opt)
     print("Objective:", obj_val)
-    print("Degenerate:", check_degeneracy(x_opt))
+    if x_opt is not None:
+        print("Degenerate:", check_degeneracy(x_opt))
+    else:
+        print("Degenerate: N/A")
 
 
-# ###...existing code...
-# def remove_redundant_constraints_alt(A, b):
-#     # Simple row-echelon-based approach
-#     A_work = A.copy().astype(float)
-#     b_work = b.copy().astype(float)
-#     m, n = A_work.shape
-#     row = 0
-    
-#     for col in range(n):
-#         # Find pivot
-#         pivot = row
-#         while pivot < m and abs(A_work[pivot, col]) < 1e-12:
-#             pivot += 1
-#         if pivot == m:
-#             continue
-
-#         # Swap to current row
-#         if pivot != row:
-#             A_work[[row, pivot]] = A_work[[pivot, row]]
-#             b_work[[row, pivot]] = b_work[[pivot, row]]
-
-#         # Normalize pivot row
-#         pivot_val = A_work[row, col]
-#         A_work[row] /= pivot_val
-#         b_work[row] /= pivot_val
-
-#         # Eliminate below
-#         for r in range(row+1, m):
-#             factor = A_work[r, col]
-#             A_work[r] -= factor * A_work[row]
-#             b_work[r] -= factor * b_work[row]
-
-#         row += 1
-#         if row == m:
-#             break
-
-#     # Now identify nonzero rows
-#     nonzero_idx = []
-#     for i in range(m):
-#         if not np.allclose(A_work[i], 0, atol=1e-12):
-#             nonzero_idx.append(i)
-
-#     A_filtered = A_work[nonzero_idx, :]
-#     b_filtered = b_work[nonzero_idx]
-#     return A_filtered, b_filtered
-# ### ...existing code...
