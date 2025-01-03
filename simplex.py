@@ -80,14 +80,14 @@ def remove_redundant_constraints(A, b, tol=1e-9):
 
 
 def big_m_method(c_std, A_std, b_std):
-    m, n = A_std.shape # row, col
-    A_art = np.hstack((A_std, np.eye(m))) # -> [A I]
-    big_M = 1e3
-    c_art = np.concatenate((c_std, big_M * np.ones(m))) # -> [c big_M * np.ones(m)]
-    basis = list(range(n, n+m)) #
-    x_init = np.zeros(n+m)
+    m, n = A_std.shape
+    A_art = np.hstack((A_std, np.eye(m)))
+    big_M = 1e6
+    c_art = np.concatenate((c_std, [big_M] * m))
+    basis = list(range(n, n+m))
+    x_init = np.zeros(n+m)  # 修正维度
     x_init[basis] = b_std
-    return basis, x_init[:n], c_art, A_art
+    return basis, x_init, c_art, A_art
 
 def simplex_iteration(c, A, b, basis):
     """
@@ -95,7 +95,7 @@ def simplex_iteration(c, A, b, basis):
     1) No feasible region
     2) Unbounded problem
     """
-    max_iter = 1000
+    max_iter = 50
     x = np.zeros(A.shape[1])
     if len(basis) > len(b):
         return None, "Infeasible domain (basis size mismatch)"
@@ -106,10 +106,10 @@ def simplex_iteration(c, A, b, basis):
         cb = c[basis]
         B = A[:, basis]
         try:
-            # 替换 np.linalg.inv(B) 为 np.linalg.solve
-            lambd = np.linalg.solve(B, cb)
+            invB = np.linalg.inv(B)
         except np.linalg.LinAlgError:
             return None, "Infeasible domain (singular basis)"
+        lambd = cb @ invB
         r = c - lambd @ A
 
         # If all reduced costs >= 0, we have an optimal solution
@@ -118,9 +118,9 @@ def simplex_iteration(c, A, b, basis):
 
         # Choose entering variable
         entering = np.argmin(r)
-        
-        # Determine direction (d = invB @ A[:, entering] 改为 solve)
-        d = np.linalg.solve(B, A[:, entering])
+
+        # Determine direction
+        d = invB @ A[:, entering]
 
         # If direction is non-positive => unbounded
         if all(d <= 0):
@@ -138,29 +138,48 @@ def simplex_iteration(c, A, b, basis):
         leaving = min(ratios, key=lambda x: x[0])[1]
         basis[leaving] = entering
 
-        # Update solution (替换 np.linalg.inv(A[:, basis]) 为 np.linalg.solve)
+        # Update solution
         x = np.zeros(A.shape[1])
-        x[basis] = np.linalg.solve(A[:, basis], b)
+        x[basis] = np.linalg.inv(A[:, basis]) @ b
 
     # If max_iter exceeded, treat as infeasible or stuck
     return None, "Infeasible or iteration limit reached"
 
 def solve_lp(c, A, b):
+    # 输入验证
+    if not isinstance(A, np.ndarray) or not isinstance(b, np.ndarray) or not isinstance(c, np.ndarray):
+        raise TypeError("Inputs must be numpy arrays")
+    
+    if A.shape[0] != len(b):
+        raise ValueError("Inconsistent dimensions between A and b")
+    
+    if A.shape[1] != len(c):
+        raise ValueError("Inconsistent dimensions between A and c")
+        
     c_std, A_std, b_std = to_standard_form(c, A, b)
-    A_filt, b_filt = remove_redundant_constraints(A_std, b_std)
-    basis, x_init, c_art, A_art = big_m_method(c_std, A_filt, b_filt)
-    x_opt, obj_val = simplex_iteration(c_art, A_art, b_filt, basis)
-
-    # if x is None
+    basis, x_init, c_art, A_art = big_m_method(c_std, A_std, b_std)
+    
+    try:
+        # 修正参数顺序，确保维度匹配
+        x_opt, obj_val = simplex_iteration(A=A_art, b=b_std, c=c_art, basis=basis)
+    except np.linalg.LinAlgError:
+        return None, "Numerical instability encountered"
+    
     if x_opt is None:
-        return x_opt, obj_val
-
-    # 检查松弛变量是否全部非负
+        return None, "Unbounded solution"
+    
+    # 只返回原始变量的解
+    x_original = x_opt[:len(c)]
+    
+    # 计算正确的目标函数值（使用原始目标函数系数）
+    obj_val = c @ x_original
+    
+    # 检查可行性
     feasible, status = check_slack_variables(x_opt, len(c))
     if not feasible:
         return None, status
     
-    return x_opt, obj_val
+    return x_original, obj_val
     
 
 def check_degeneracy(x):
@@ -179,9 +198,13 @@ if __name__ == "__main__":
                   [3, 1, 2]], dtype=float)
     b = np.array([2, 5, 6, 8], dtype=float)
     
-    x_opt, obj_val = solve_lp(c, A, b)
-    print("Solution:", x_opt)
-    print("Objective:", obj_val)
+    x_opt, obj_val = solve_lp(c=c, A=A, b=b)
+    if isinstance(obj_val, str):
+        print(f"Solution: {x_opt}")
+        print(f"Status: {obj_val}")
+    else:
+        print(f"Solution: {x_opt}")
+        print(f"Objective value: {obj_val}")
     if x_opt is not None:
         print("Degenerate:", check_degeneracy(x_opt))
     else:
