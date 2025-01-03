@@ -81,7 +81,7 @@ def remove_redundant_constraints(A, b, tol=1e-9):
 def big_m_method(c_std, A_std, b_std):
     m, n = A_std.shape
     A_art = np.hstack((A_std, np.eye(m)))
-    big_M = 1e6
+    big_M = 100
     c_art = np.concatenate((c_std, [big_M] * m))
     basis = list(range(n, n+m))
     x_init = np.zeros(n+m)  # 修正维度
@@ -123,7 +123,7 @@ def simplex_iteration(c, A, b, basis):
         if np.all(r >= 0):
             return x, "Optimal solution = " + str(c @ x)
 
-        # Choose entering variable
+        # Choose entering variable -> change to bland's rule
         entering = np.argmin(r)
 
         # Determine direction
@@ -141,11 +141,8 @@ def simplex_iteration(c, A, b, basis):
         for i in range(len(basis)):
             if d[i] > 0:
                 ratios.append((x[basis][i] / d[i], i))
-        if not ratios:
-            # No positive direction => unbounded
-            return None, "Unbounded"
 
-        leaving = min(ratios, key=lambda x: x[0])[1]
+        leaving = min(ratios, key=lambda x: x[0])[1] # the index of leaving
         basis[leaving] = entering
 
         # Update solution
@@ -195,12 +192,15 @@ def solve_lp(c, A, b):
     return x_original, obj_val
     
 
-def check_degeneracy(x):
-    # ...existing code...
-    # Simple placeholder: check if any x is nearly zero
-    eps = 1e-12
-    is_degenerate = any(abs(val) < eps for val in x)
-    return is_degenerate
+def first_negative(x):
+    """
+    Find the index of the first negative element in an array.
+    If no such element exists, return None.
+    """
+    for i, val in enumerate(x):
+        if val < 0:
+            return i
+    return None
 
 if __name__ == "__main__":
     # Example usage
@@ -218,7 +218,3 @@ if __name__ == "__main__":
     else:
         print(f"Solution: {x_opt}")
         print(f"Objective value: {obj_val}")
-    if x_opt is not None:
-        print("Degenerate:", check_degeneracy(x_opt))
-    else:
-        print("Degenerate: N/A")
