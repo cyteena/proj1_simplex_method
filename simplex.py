@@ -113,17 +113,20 @@ def simplex_iteration(c, A, b, basis):
         r = c - lambd @ A
 
         # If all reduced costs >= 0, we have an optimal solution
-        if all(r >= 0):
+        if np.all(r >= 0):
             return x, "Optimal solution = " + str(c @ x)
 
         # Choose entering variable
         entering = np.argmin(r)
 
         # Determine direction
-        d = invB @ A[:, entering]
+        try:
+            d = np.linalg.solve(B, A[:, entering])
+        except np.linalg.LinAlgError:
+            return None, "Singular matrix encountered during direction calculation"
 
         # If direction is non-positive => unbounded
-        if all(d <= 0):
+        if np.all(d <= 0):
             return None, "Unbounded"
 
         # Ratio test using Bland's rule (smallest subscript rule)
@@ -139,8 +142,11 @@ def simplex_iteration(c, A, b, basis):
         basis[leaving] = entering
 
         # Update solution
-        x = np.zeros(A.shape[1])
-        x[basis] = np.linalg.solve(A[:, basis], b)
+        try:
+            x = np.zeros_like(c)
+            x[basis] = np.linalg.solve(A[:, basis], b)
+        except np.linalg.LinAlgError:
+            return None, "Singular matrix encountered during solution update"
 
     # If max_iter exceeded, treat as infeasible or stuck
     return None, "Infeasible or iteration limit reached"
@@ -209,5 +215,3 @@ if __name__ == "__main__":
         print("Degenerate:", check_degeneracy(x_opt))
     else:
         print("Degenerate: N/A")
-
-
