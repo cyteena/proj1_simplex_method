@@ -68,7 +68,7 @@ def remove_redundant_constraints(A, b, tol=1e-9):
     nonzero_idx = []
     for i in range(m):
         # If row is effectively not zero
-        if not all(abs(A_work[i]) < tol) or abs(b_work[i]) >= tol:
+        if not np.all(np.abs(A_work[i]) < tol) or np.abs(b_work[i]) >= tol:
             nonzero_idx.append(i)
 
     # Extract the filtered constraints
@@ -76,7 +76,6 @@ def remove_redundant_constraints(A, b, tol=1e-9):
     b_filtered = b_work[nonzero_idx]
 
     return A_filtered, b_filtered
-
 
 
 def big_m_method(c_std, A_std, b_std):
@@ -99,7 +98,15 @@ def simplex_iteration(c, A, b, basis):
     x = np.zeros_like(c)
     if len(basis) > len(b):
         return None, "Infeasible domain (basis size mismatch)"
-    x[basis] = b[:len(basis)]
+    
+    # 计算初始解
+    B = A[:, basis]
+    try:
+        x_b = np.linalg.solve(B, b)
+    except np.linalg.LinAlgError:
+        return None, "Infeasible domain (singular basis)"
+    
+    x[basis] = x_b
 
     for _ in range(max_iter):
         # Compute reduced costs
