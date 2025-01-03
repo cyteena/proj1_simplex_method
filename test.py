@@ -8,9 +8,9 @@ def generate_random_lp(m, n):
     """
     Generate a random LP problem.
     """
-    c = np.random.uniform(-10, 10, n)
-    A = np.random.uniform(-10, 10, (m, n))
-    b = np.random.uniform(0, 10, m)
+    c = np.random.randint(-10, 11, n)
+    A = np.random.randint(-10, 11, (m, n))
+    b = np.random.randint(0, 10, m)
     return c, A, b
 
 def generate_solvable_lp(m, n):
