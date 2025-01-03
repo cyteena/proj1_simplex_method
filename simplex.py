@@ -21,40 +21,72 @@ def check_slack_variables(x_opt, n):
         return False, "Infeasible domain"
     
 
-def remove_redundant_constraints(A, b):
-    # 增广矩阵 [A | b]
-    Ab = np.hstack((A, b.reshape(-1, 1)))
-    
-    # 计算增广矩阵的秩
-    rank = np.linalg.matrix_rank(Ab)
-    
-    # 使用 SVD 分解
-    U, s, Vt = np.linalg.svd(Ab)
-    
-    # 选择前 rank 个奇异值对应的行
-    idx = np.argsort(s)[::-1][:rank]
-    
-    # 过滤掉线性相关的行
-    A_filtered = A[idx, :]
-    b_filtered = b[idx]
-    
+def remove_redundant_constraints(A, b, tol=1e-9):
+    """
+    A pivot-based approach to remove redundant constraints.
+    This avoids using SVD for large problems and can be faster in practice.
+    """
+    # Make copies to avoid modifying original arrays
+    A_work = A.copy().astype(float)
+    b_work = b.copy().astype(float)
+
+    m, n = A_work.shape
+    row = 0
+
+    # Perform a straightforward pivot-based row-reduction
+    for col in range(n):
+        # 1) Find pivot
+        pivot = row
+        while pivot < m and abs(A_work[pivot, col]) < tol:
+            pivot += 1
+        if pivot == m:
+            continue  # No pivot in this column
+
+        # 2) Swap pivot row to current row if needed
+        if pivot != row:
+            A_work[[row, pivot]] = A_work[[pivot, row]]
+            b_work[[row, pivot]] = b_work[[pivot, row]]
+
+        # 3) Normalize pivot row
+        pivot_val = A_work[row, col]
+        if abs(pivot_val) < tol:
+            continue
+        A_work[row] /= pivot_val
+        b_work[row] /= pivot_val
+
+        # 4) Eliminate below pivot
+        for r in range(row + 1, m):
+            factor = A_work[r, col]
+            A_work[r] -= factor * A_work[row]
+            b_work[r] -= factor * b_work[row]
+
+        row += 1
+        if row == m:
+            break
+
+    # Identify nonzero rows
+    nonzero_idx = []
+    for i in range(m):
+        # If row is effectively not zero
+        if not all(abs(A_work[i]) < tol) or abs(b_work[i]) >= tol:
+            nonzero_idx.append(i)
+
+    # Extract the filtered constraints
+    A_filtered = A_work[nonzero_idx, :]
+    b_filtered = b_work[nonzero_idx]
+
     return A_filtered, b_filtered
 
 
 
 def big_m_method(c_std, A_std, b_std):
-    m, n = A_std.shape
-    A_art = np.hstack((A_std, np.eye(m)))
-    big_M = 1e5
-    c_art = np.concatenate((c_std, big_M * np.ones(m)))
-    basis = list(range(n, n+m))
+    m, n = A_std.shape # row, col
+    A_art = np.hstack((A_std, np.eye(m))) # -> [A I]
+    big_M = 1e3
+    c_art = np.concatenate((c_std, big_M * np.ones(m))) # -> [c big_M * np.ones(m)]
+    basis = list(range(n, n+m)) #
     x_init = np.zeros(n+m)
     x_init[basis] = b_std
-
-    # 使用已有simplex_iteration对辅助问题求解
-    x_sol, status = simplex_iteration(c_art, A_art, b_std, basis)
-    
-    # 不在此处检查不可行域，直接返回结果
     return basis, x_init[:n], c_art, A_art
 
 def simplex_iteration(c, A, b, basis):
@@ -63,8 +95,10 @@ def simplex_iteration(c, A, b, basis):
     1) No feasible region
     2) Unbounded problem
     """
-    max_iter = 50
+    max_iter = 1000
     x = np.zeros(A.shape[1])
+    if len(basis) > len(b):
+        return None, "Infeasible domain (basis size mismatch)"
     x[basis] = b[:len(basis)]
 
     for _ in range(max_iter):
@@ -72,10 +106,10 @@ def simplex_iteration(c, A, b, basis):
         cb = c[basis]
         B = A[:, basis]
         try:
-            invB = np.linalg.inv(B)
+            # 替换 np.linalg.inv(B) 为 np.linalg.solve
+            lambd = np.linalg.solve(B.T, cb).T
         except np.linalg.LinAlgError:
             return None, "Infeasible domain (singular basis)"
-        lambd = cb @ invB
         r = c - lambd @ A
 
         # If all reduced costs >= 0, we have an optimal solution
@@ -85,8 +119,8 @@ def simplex_iteration(c, A, b, basis):
         # Choose entering variable
         entering = np.argmin(r)
         
-        # Determine direction
-        d = invB @ A[:, entering]
+        # Determine direction (d = invB @ A[:, entering] 改为 solve)
+        d = np.linalg.solve(B, A[:, entering])
 
         # If direction is non-positive => unbounded
         if all(d <= 0):
@@ -104,9 +138,9 @@ def simplex_iteration(c, A, b, basis):
         leaving = min(ratios, key=lambda x: x[0])[1]
         basis[leaving] = entering
 
-        # Update solution
+        # Update solution (替换 np.linalg.inv(A[:, basis]) 为 np.linalg.solve)
         x = np.zeros(A.shape[1])
-        x[basis] = np.linalg.inv(A[:, basis]) @ b
+        x[basis] = np.linalg.solve(A[:, basis], b)
 
     # If max_iter exceeded, treat as infeasible or stuck
     return None, "Infeasible or iteration limit reached"
@@ -114,14 +148,11 @@ def simplex_iteration(c, A, b, basis):
 def solve_lp(c, A, b):
     c_std, A_std, b_std = to_standard_form(c, A, b)
     A_filt, b_filt = remove_redundant_constraints(A_std, b_std)
-    result = big_m_method(c_std, A_filt, b_filt)
-    if len(result) < 4:
-        return None, "Infeasible domain"
-    basis, x_init, c_art, A_art = result
-    x_opt, obj_val = simplex_iteration(c_std, A_filt, b_filt, basis)
+    basis, x_init, c_art, A_art = big_m_method(c_std, A_filt, b_filt)
+    x_opt, obj_val = simplex_iteration(c_art, A_art, b_filt, basis)
 
-    # if x
-    if obj_val == "Unbounded":
+    # if x is None
+    if x_opt is None:
         return x_opt, obj_val
 
     # 检查松弛变量是否全部非负

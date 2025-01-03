@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.optimize import linprog
+from simplex import solve_lp
+from test import generate_solvable_lp
 
 def compare_with_scipy(c, A, b):
     # 使用 solve_lp 求解
@@ -31,13 +33,38 @@ def compare_with_scipy(c, A, b):
     else:
         return False, f"Different statuses: solve_lp returned {solve_lp_status}, linprog returned {linprog_status}."
 
-# 示例使用
-c = np.array([-2, -3, 5], dtype=float)
-A = np.array([[2, -1, 1],
-              [1, 1, 3],
-              [1, -1, 4],
-              [3, 1, 2]], dtype=float)
-b = np.array([2, 5, 6, 8], dtype=float)
+def test_compare_with_scipy():
+    sizes = [(5, 10), (10, 20), (20, 40), (40, 80), (80, 160)]
+    results = []
 
-result, message = compare_with_scipy(c, A, b)
-print(message)
+    for m, n in sizes:
+        for _ in range(20):
+            c, A, b = generate_solvable_lp(m, n)
+            result, message = compare_with_scipy(c, A, b)
+            results.append((result, message))
+            print(f"Size: {(m, n)}, Result: {result}, Message: {message}")
+
+    return results    
+    
+
+if __name__ == "__main__":
+    # # 示例使用
+    # c = np.array([-2, -3, 5], dtype=float)
+    # A = np.array([[2, -1, 1],
+    #             [1, 1, 3],
+    #             [1, -1, 4],
+    #             [3, 1, 2]], dtype=float)
+    # b = np.array([2, 5, 6, 8], dtype=float)
+
+    # result, message = compare_with_scipy(c, A, b)
+    # print(message)
+
+    test_results = test_compare_with_scipy()
+    print(test_results)
+    # 统计结果
+    # success_count = sum(1 for result, _ in test_results if result)
+    # total_tests = len(test_results)
+    # print(f"Total tests: {total_tests}, Successes: {success_count}, Failures: {total_tests - success_count}")
+
+
+    
