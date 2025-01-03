@@ -1,6 +1,8 @@
 import numpy as np
 import time
+from scipy.optimize import linprog
 import matplotlib.pyplot as plt
+from simplex import solve_lp
 
 def generate_random_lp(m, n):
     """
@@ -11,6 +13,13 @@ def generate_random_lp(m, n):
     b = np.random.uniform(0, 10, m)
     return c, A, b
 
+def generate_solvable_lp(m, n):
+    while True:
+        c, A, b = generate_random_lp(m, n)
+        res = linprog(c, A_ub=A, b_ub=b, method='simplex')
+        if res.success:
+            return c, A, b
+
 def report_solve_time():
     sizes = [(5, 10), (10, 20), (20, 40), (40, 80), (80, 160)]
     mean_times = []
@@ -19,7 +28,7 @@ def report_solve_time():
     for m, n in sizes:
         times = []
         for _ in range(20):
-            c, A, b = generate_random_lp(m, n)
+            c, A, b = generate_solvable_lp(m, n)
             start_time = time.time()
             try:
                 x_opt, obj_val = solve_lp(c, A, b)
@@ -46,6 +55,7 @@ def report_solve_time():
     plt.ylabel('Mean Solve Time (s)')
     plt.title('Simplex Method Solve Time vs Problem Size')
     plt.show()
+
 
 if __name__ == "__main__":
     report_solve_time()
