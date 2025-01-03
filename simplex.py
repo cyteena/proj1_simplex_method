@@ -96,7 +96,7 @@ def simplex_iteration(c, A, b, basis):
     2) Unbounded problem
     """
     max_iter = 50
-    x = np.zeros(A.shape[1])
+    x = np.zeros_like(c)
     if len(basis) > len(b):
         return None, "Infeasible domain (basis size mismatch)"
     x[basis] = b[:len(basis)]
@@ -140,7 +140,7 @@ def simplex_iteration(c, A, b, basis):
 
         # Update solution
         x = np.zeros(A.shape[1])
-        x[basis] = np.linalg.inv(A[:, basis]) @ b
+        x[basis] = np.linalg.solve(A[:, basis], b)
 
     # If max_iter exceeded, treat as infeasible or stuck
     return None, "Infeasible or iteration limit reached"
