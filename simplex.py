@@ -8,7 +8,8 @@ def to_standard_form(c, A, b):
     A_std = np.hstack((A, I))
     c_std = np.concatenate((c, np.zeros(m)))
     b_std = b.copy()
-    return c_std, A_std, b_std
+    basis = list(range(n, n+m))
+    return basis, c_std, A_std, b_std
 
 def check_slack_variables(x_opt, n):
     """
@@ -81,12 +82,14 @@ def remove_redundant_constraints(A, b, tol=1e-9):
 def big_m_method(c_std, A_std, b_std):
     m, n = A_std.shape
     A_art = np.hstack((A_std, np.eye(m)))
-    big_M = 100
+    big_M = 1e6
     c_art = np.concatenate((c_std, [big_M] * m))
     basis = list(range(n, n+m))
     x_init = np.zeros(n+m)  # 修正维度
     x_init[basis] = b_std
     return basis, x_init, c_art, A_art
+
+
 
 def simplex_iteration(c, A, b, basis):
     """
@@ -120,11 +123,12 @@ def simplex_iteration(c, A, b, basis):
         r = c - lambd @ A
 
         # If all reduced costs >= 0, we have an optimal solution
-        if np.all(r >= 0):
+        if all_non_basis_non_negative(r, basis):
             return x, "Optimal solution = " + str(c @ x)
 
         # Choose entering variable -> change to bland's rule
-        entering = np.argmin(r)
+        entering = first_negative(r, basis)
+
 
         # Determine direction
         try:
@@ -142,7 +146,7 @@ def simplex_iteration(c, A, b, basis):
             if d[i] > 0:
                 ratios.append((x[basis][i] / d[i], i))
 
-        leaving = min(ratios, key=lambda x: x[0])[1] # the index of leaving
+        leaving = min(ratios, key=lambda x: x[0])[1]
         basis[leaving] = entering
 
         # Update solution
@@ -166,12 +170,12 @@ def solve_lp(c, A, b):
     if A.shape[1] != len(c):
         raise ValueError("Inconsistent dimensions between A and c")
         
-    c_std, A_std, b_std = to_standard_form(c, A, b)
-    basis, x_init, c_art, A_art = big_m_method(c_std, A_std, b_std)
+    basis, c_std, A_std, b_std = to_standard_form(c, A, b) # Without big_M method
+    # basis, x_init, c_std, A_std = big_m_method(c_std, A_std, b_std) # With big_M method
     
     try:
         # 修正参数顺序，确保维度匹配
-        x_opt, obj_val = simplex_iteration(A=A_art, b=b_std, c=c_art, basis=basis)
+        x_opt, obj_val = simplex_iteration(A=A_std, b=b_std, c=c_std, basis=basis)
     except np.linalg.LinAlgError:
         return None, "Numerical instability encountered"
     
@@ -192,15 +196,25 @@ def solve_lp(c, A, b):
     return x_original, obj_val
     
 
-def first_negative(x):
+def first_negative(r, basis):
     """
-    Find the index of the first negative element in an array.
+    Find the index of the first negative element in r that is not in the basis.
     If no such element exists, return None.
     """
-    for i, val in enumerate(x):
-        if val < 0:
-            return i
+    for j in range(len(r)):
+        if j not in basis and r[j] < 0:
+            return j
     return None
+
+def all_non_basis_non_negative(r, basis):
+    """
+    Check if all non-basis elements in r are >= 0.
+    """
+    for j in range(len(r)):
+        if j not in basis and r[j] < 0:
+            return False
+    return True
+
 
 if __name__ == "__main__":
     # Example usage

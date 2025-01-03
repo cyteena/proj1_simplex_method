@@ -1,7 +1,8 @@
+import json
 import numpy as np
 from scipy.optimize import linprog
 from simplex import solve_lp
-from test import generate_solvable_lp
+from test import generate_solvable_lp, generate_solvable_lp_linprog
 
 def compare_with_scipy(c, A, b):
     # 使用 solve_lp 求解
@@ -34,18 +35,29 @@ def compare_with_scipy(c, A, b):
         return False, f"Different statuses: solve_lp returned {solve_lp_status}, linprog returned {linprog_status}."
 
 def test_compare_with_scipy():
-    sizes = [(5, 5), (5, 6), (7, 8), (9, 9), (10, 12), (12, 15)]
+    sizes = [(5, 5), (5, 6), (7, 8), (9, 9), (10, 12), (12, 15), (20, 20)]
     results = []
 
     for m, n in sizes:
         for _ in range(20):
-            c, A, b = generate_solvable_lp(m, n)
+            c, A, b = generate_solvable_lp_linprog(m, n)
             result, message = compare_with_scipy(c, A, b)
-            results.append((result, message))
+            results.append((result, message, c, A, b))
             print(f"Size: {(m, n)}, Result: {result}, Message: {message}")
 
     return results    
     
+def write_failed_examples_to_json(test_results, filename="failed_example.json"):
+    failed_examples = []
+    for result, message, c, A, b in test_results:
+        if not result and "solve_lp returned Unbounded solution, linprog returned Optimal" in message:
+            failed_examples.append({
+                "c": c.tolist(),
+                "A": A.tolist(),
+                "b": b.tolist()
+            })
+    with open(filename, "w") as f:
+        json.dump(failed_examples, f, indent=4)
 
 if __name__ == "__main__":
     # # 示例使用
@@ -60,6 +72,7 @@ if __name__ == "__main__":
     # print(message)
 
     test_results = test_compare_with_scipy()
+    write_failed_examples_to_json(test_results)
     # 统计结果
     # success_count = sum(1 for result, _ in test_results if result)
     # total_tests = len(test_results)

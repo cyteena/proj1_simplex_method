@@ -19,9 +19,16 @@ def generate_solvable_lp(m, n):
         x_opt, _ = solve_lp(c, A, b)
         if x_opt is not None:
             return c, A, b
+        
+def generate_solvable_lp_linprog(m, n):
+    while True:
+        c, A, b = generate_random_lp(m, n)
+        res = linprog(c, A_ub=A, b_ub=b, method='simplex')
+        if res.success:
+            return c, A, b
 
 def report_solve_time():
-    sizes = [(5, 10), (10, 20), (20, 40), (40, 80), (80, 160)]
+    sizes = [(5, 5), (5, 6), (7, 8), (9, 9), (10, 12), (12, 15)]
     mean_times = []
     std_devs = []
 
