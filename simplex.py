@@ -107,7 +107,7 @@ def simplex_iteration(c, A, b, basis):
         B = A[:, basis]
         try:
             # 替换 np.linalg.inv(B) 为 np.linalg.solve
-            lambd = np.linalg.solve(B.T, cb).T
+            lambd = np.linalg.solve(B, cb)
         except np.linalg.LinAlgError:
             return None, "Infeasible domain (singular basis)"
         r = c - lambd @ A
