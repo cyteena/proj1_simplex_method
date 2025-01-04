@@ -85,7 +85,7 @@ def big_m_method(c_std, A_std, b_std):
     big_M = 1e6
     c_art = np.concatenate((c_std, [big_M] * m))
     basis = list(range(n, n+m))
-    x_init = np.zeros(n+m)  # 修正维度
+    x_init = np.zeros(n+m)  
     x_init[basis] = b_std
     return basis, x_init, c_art, A_art
 
