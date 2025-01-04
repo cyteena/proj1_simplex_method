@@ -1,24 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from simplex import simplex_iteration_lu, simplex_iteration_straight, to_standard_form
+from test import generate_solvable_lp_linprog
 
-def generate_random_lp(m, n):
-    """
-    Generate a random LP problem with integer coefficients.
-    """
-    c = np.random.randint(-10, 11, n)
-    A = np.random.randint(-10, 11, (m, n))
-    b = np.random.randint(0, 11, m)
-    return c, A, b
 
-def test_simplex_methods(num_tests=100):
-    m, n = 20, 20  # Dimensions of the LP problems
+def test_simplex_methods(num_tests=20):
+    m, n = 20, 40  # Dimensions of the LP problems
     success_straight = 0
     success_lu = 0
 
     for _ in range(num_tests):
-        c, A, b = generate_random_lp(m, n)
-        basis, c, A, b = to_standard_form(c, A, b)
+        c, A, b = generate_solvable_lp_linprog(m, n)
+        basis, c, A, b= to_standard_form(c, A, b)
 
         # Test simplex_iteration_straight
         result_straight, status_straight = simplex_iteration_straight(c, A, b, basis)
@@ -57,7 +50,7 @@ def plot_results(success_straight, success_lu, num_tests):
     plt.show()
 
 if __name__ == "__main__":
-    num_tests = 100
+    num_tests = 20
     success_straight, success_lu = test_simplex_methods(num_tests)
     print(f"simplex_iteration_straight solved {success_straight} out of {num_tests} problems.")
     print(f"simplex_iteration with LU decomposition solved {success_lu} out of {num_tests} problems.")

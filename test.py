@@ -16,7 +16,7 @@ def generate_random_lp(m, n):
 def generate_solvable_lp(m, n):
     while True:
         c, A, b = generate_random_lp(m, n)
-        x_opt, _ = solve_lp(c, A, b)
+        x_opt, _ = solve_lp_lu(c, A, b)
         if x_opt is not None:
             return c, A, b
         
