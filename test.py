@@ -38,7 +38,7 @@ def report_solve_time():
             c, A, b = generate_solvable_lp(m, n)
             start_time = time.time()
             try:
-                x_opt, obj_val = solve_lp(c, A, b)
+                x_opt, obj_val = solve_lp_lu(c, A, b)
                 if x_opt is not None:
                     elapsed_time = time.time() - start_time
                     times.append(elapsed_time)

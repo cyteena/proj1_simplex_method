@@ -256,8 +256,11 @@ def solve_lp_lu(c, A, b):
     if A.shape[1] != len(c):
         raise ValueError("Inconsistent dimensions between A and c")
         
-    basis, c_std, A_std, b_std = to_standard_form(c, A, b) # Without big_M method
-    # basis, x_init, c_std, A_std = big_m_method(c_std, A_std, b_std) # With big_M method
+    basis, c_std, A_std, b_std = to_standard_form(c, A, b) 
+    # Without big_M method
+    
+    # basis, x_init, c_std, A_std = big_m_method(c_std, A_std, b_std) 
+    # # With big_M method
     
     try:
         x_opt, obj_val = simplex_iteration_lu(A=A_std, b=b_std, c=c_std, basis=basis)
