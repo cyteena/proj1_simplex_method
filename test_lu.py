@@ -7,6 +7,9 @@ from test import generate_solvable_lp_linprog
 
 
 def test_simplex_methods(sizes, num_tests=20):
+    """
+    Test the simplex_iteration_straight and simplex_iteration_lu functions on LP problems of various sizes.
+    """
     results = []
 
     for m, n in sizes:
@@ -43,7 +46,7 @@ def test_simplex_methods(sizes, num_tests=20):
 
 def plot_results(size, success_straight, success_lu, num_tests):
     m, n = size
-    labels = ['simplex_iteration_straight', 'simplex_iteration']
+    labels = ['simplex_iteration_straight', 'simplex_iteration_lu']
     successes = [success_straight, success_lu]
     failures = [num_tests - success_straight, num_tests - success_lu]
 
