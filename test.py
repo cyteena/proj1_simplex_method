@@ -2,7 +2,7 @@ import numpy as np
 import time
 from scipy.optimize import linprog
 import matplotlib.pyplot as plt
-from simplex import solve_lp
+from simplex import solve_lp_lu
 
 def generate_random_lp(m, n):
     """

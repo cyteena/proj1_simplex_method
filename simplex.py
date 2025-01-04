@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.linalg import lu_factor, lu_solve
+
+
 def to_standard_form(c, A, b):
     # ...existing code...
     # Convert ≤ constraints to standard form by adding slack variables
@@ -90,9 +92,79 @@ def big_m_method(c_std, A_std, b_std):
     return basis, x_init, c_art, A_art
 
 
+def simplex_iteration_straight(c, A, b, basis):
+    """
+    Perform the simplex iteration to find the optimal solution.
+    """
+    max_iter = 50
+    x = np.zeros_like(c)
+    if len(basis) > len(b):
+        return None, "Infeasible domain (basis size mismatch)"
+    
+    # 计算初始解
+    B = A[:, basis]
+    try:
+        x_b = np.linalg.solve(B, b)
+    except np.linalg.LinAlgError:
+        return None, "Infeasible domain (singular basis)"
+    
+    x[basis] = x_b
+
+    for _ in range(max_iter):
+        # Compute reduced costs
+        cb = c[basis]
+        B = A[:, basis]
+        try:
+            invB = np.linalg.inv(B)
+        except np.linalg.LinAlgError:
+            return None, "Infeasible domain (singular basis)"
+        lambd = cb @ invB
+        r = c - lambd @ A
+
+        # If all non-basis reduced costs >= 0, we have an optimal solution
+        if all_non_basis_non_negative(r, basis):
+            return x, "Optimal solution = " + str(c @ x)
+
+        # Choose entering variable -> change to bland's rule
+        entering = first_negative(r, basis)
+        if entering is None:
+            return None, "No entering variable found (all reduced costs >= 0)"
+
+        # Determine direction
+        try:
+            d = np.linalg.solve(B, A[:, entering])
+        except np.linalg.LinAlgError:
+            return None, "Singular matrix encountered during direction calculation"
+
+        # If direction is non-positive => unbounded
+        if np.all(d <= 0):
+            return None, "Unbounded"
+
+        # Ratio test using Bland's rule (smallest subscript rule)
+        ratios = []
+        for i in range(len(basis)):
+            if d[i] > 0:
+                ratios.append((x[basis[i]] / d[i], i))
+        if not ratios:
+            # No positive direction => unbounded
+            return None, "Unbounded"
+
+        # Sort ratios to ensure Bland's rule
+        leaving = min(ratios, key=lambda x: x[0])[1]
+        basis[leaving] = entering
+
+        # Update solution
+        try:
+            x = np.zeros_like(c)
+            x[basis] = np.linalg.solve(A[:, basis], b)
+        except np.linalg.LinAlgError:
+            return None, "Singular matrix encountered during solution update"
+
+    # If max_iter exceeded, treat as infeasible or stuck
+    return None, "Infeasible or iteration limit reached"
 
 
-def simplex_iteration(c, A, b, basis):
+def simplex_iteration_lu(c, A, b, basis):
     """
     Simplex iteration that distinguishes two types of 'no solution':
     1) No feasible region
@@ -121,8 +193,12 @@ def simplex_iteration(c, A, b, basis):
             lu, piv = lu_factor(B)
         except np.linalg.LinAlgError:
             return None, "Infeasible domain (singular basis)"
-        lu1, piv1 = lu_factor(B.T)
-        lambd = lu_solve((lu1, piv1), cb.T).T
+        try:               
+            lu1, piv1 = lu_factor(B.T)
+            lambd = lu_solve((lu1, piv1), cb.T).T
+        except np.linalg.LinAlgError:
+            return None, "Infeasible domain (singular basis)"
+
         r = c - lambd @ A
 
         # If all non-basis reduced costs >= 0, we have an optimal solution
@@ -131,6 +207,7 @@ def simplex_iteration(c, A, b, basis):
 
         # Choose entering variable -> change to bland's rule
         entering = first_negative(r, basis)
+        # entering = np.argmin(r) # you will see the exceeding of max_iter
         if entering is None:
             return None, "No entering variable found (all reduced costs >= 0)"
 
@@ -168,7 +245,42 @@ def simplex_iteration(c, A, b, basis):
     # If max_iter exceeded, treat as infeasible or stuck
     return None, "Infeasible or iteration limit reached"
 
-def solve_lp(c, A, b):
+def solve_lp_lu(c, A, b):
+    # 输入验证
+    if not isinstance(A, np.ndarray) or not isinstance(b, np.ndarray) or not isinstance(c, np.ndarray):
+        raise TypeError("Inputs must be numpy arrays")
+    
+    if A.shape[0] != len(b):
+        raise ValueError("Inconsistent dimensions between A and b")
+    
+    if A.shape[1] != len(c):
+        raise ValueError("Inconsistent dimensions between A and c")
+        
+    basis, c_std, A_std, b_std = to_standard_form(c, A, b) # Without big_M method
+    # basis, x_init, c_std, A_std = big_m_method(c_std, A_std, b_std) # With big_M method
+    
+    try:
+        x_opt, obj_val = simplex_iteration_lu(A=A_std, b=b_std, c=c_std, basis=basis)
+    except np.linalg.LinAlgError:
+        return None, "Numerical instability encountered"
+    
+    if x_opt is None:
+        return None, "Unbounded solution"
+    
+    # 只返回原始变量的解
+    x_original = x_opt[:len(c)]
+    
+    # 计算正确的目标函数值（使用原始目标函数系数）
+    obj_val = c @ x_original
+    
+    # 检查可行性
+    feasible, status = check_slack_variables(x_opt, len(c))
+    if not feasible:
+        return None, status
+    
+    return x_original, obj_val
+
+def solve_lp_straight(c, A, b):
     # 输入验证
     if not isinstance(A, np.ndarray) or not isinstance(b, np.ndarray) or not isinstance(c, np.ndarray):
         raise TypeError("Inputs must be numpy arrays")
@@ -184,7 +296,7 @@ def solve_lp(c, A, b):
     
     try:
         # 修正参数顺序，确保维度匹配
-        x_opt, obj_val = simplex_iteration(A=A_std, b=b_std, c=c_std, basis=basis)
+        x_opt, obj_val = simplex_iteration_straight(A=A_std, b=b_std, c=c_std, basis=basis)
     except np.linalg.LinAlgError:
         return None, "Numerical instability encountered"
     
@@ -234,7 +346,7 @@ if __name__ == "__main__":
                   [3, 1, 2]], dtype=float)
     b = np.array([2, 5, 6, 8], dtype=float)
     
-    x_opt, obj_val = solve_lp(c=c, A=A, b=b)
+    x_opt, obj_val = solve_lp_lu(c=c, A=A, b=b)
     if isinstance(obj_val, str):
         print(f"Solution: {x_opt}")
         print(f"Status: {obj_val}")
