@@ -2,7 +2,7 @@ import numpy as np
 import time
 from scipy.optimize import linprog
 import matplotlib.pyplot as plt
-from simplex import solve_lp_lu
+from simplex import solve_lp_lu_M
 
 def generate_random_lp(m, n):
     """
@@ -16,7 +16,7 @@ def generate_random_lp(m, n):
 def generate_solvable_lp(m, n):
     while True:
         c, A, b = generate_random_lp(m, n)
-        x_opt, _ = solve_lp_lu(c, A, b)
+        x_opt, _ = solve_lp_lu_M(c, A, b)
         if x_opt is not None:
             return c, A, b
         
@@ -38,7 +38,7 @@ def report_solve_time():
             c, A, b = generate_solvable_lp(m, n)
             start_time = time.time()
             try:
-                x_opt, obj_val = solve_lp_lu(c, A, b)
+                x_opt, obj_val = solve_lp_lu_M(c, A, b)
                 if x_opt is not None:
                     elapsed_time = time.time() - start_time
                     times.append(elapsed_time)
