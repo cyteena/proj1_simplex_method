@@ -1,7 +1,7 @@
 import json
 import numpy as np
 from scipy.optimize import linprog
-from simplex import solve_lp
+from simplex import solve_lp_lu
 
 def read_failed_examples(filename="failed_example.json"):
     with open(filename, "r") as f:
@@ -10,7 +10,7 @@ def read_failed_examples(filename="failed_example.json"):
 
 def solve_example(c, A, b):
     # 使用自定义的 solve_lp 函数
-    x_opt, solve_lp_status = solve_lp(np.array(c), np.array(A), np.array(b))
+    x_opt, solve_lp_status = solve_lp_lu(np.array(c), np.array(A), np.array(b))
     
     # 使用 scipy.optimize.linprog 函数
     res = linprog(c, A_ub=A, b_ub=b, method='simplex')

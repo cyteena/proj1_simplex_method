@@ -2,26 +2,11 @@ import numpy as np
 import time
 from scipy.optimize import linprog
 import matplotlib.pyplot as plt
-from simplex import solve_lp
-
-def generate_random_lp(m, n):
-    """
-    Generate a random LP problem.
-    """
-    c = np.random.uniform(-10, 10, n)
-    A = np.random.uniform(-10, 10, (m, n))
-    b = np.random.uniform(0, 10, m)
-    return c, A, b
-
-def generate_solvable_lp(m, n):
-    while True:
-        c, A, b = generate_random_lp(m, n)
-        x_opt, obj_val = solve_lp(c, A, b)
-        if x_opt is not None:
-            return c, A, b
+from simplex import solve_lp_lu, to_standard_form, simplex_iteration_lu, simplex_iteration_straight
+from test import generate_solvable_lp_linprog
 
 def report_solve_time():
-    sizes = [(5, 5), (5, 6), (7, 8), (9, 9), (10, 12), (12, 15), (15, 20)]
+    sizes = [(50, 50), (60 , 60), (70, 70), (80, 80)]
     mean_times = []
     std_devs = []
     linprog_mean_times = []
@@ -31,22 +16,24 @@ def report_solve_time():
         times = []
         linprog_times = []
         for _ in range(20):
-            A = np.random.rand(m, n)
-            b = np.random.rand(m)
-            c = np.random.rand(n)
+            c, A, b = generate_solvable_lp_linprog(m, n)
+            basis, c_std, A_std, b_std = to_standard_form(c, A, b)
+            x_opt, obj_val = simplex_iteration_straight(c_std, A_std, b_std, basis)
 
             try:
                 start_time = time.time()
-                solve_lp(c, A, b)
-                elapsed_time = time.time() - start_time
+                simplex_iteration_lu(c_std, A_std, b_std, basis)
+                end_time = time.time()
+                elapsed_time = end_time - start_time
                 times.append(elapsed_time)
             except Exception:
                 continue
 
             try:
                 start_time = time.time()
-                linprog(c, A_eq=A, b_eq=b, method='simplex')
-                elapsed_time = time.time() - start_time
+                linprog(c, A_ub=A, b_ub=b, method='simplex')
+                end_time = time.time()
+                elapsed_time = end_time - start_time
                 linprog_times.append(elapsed_time)
             except Exception:
                 continue

@@ -4,17 +4,21 @@ from scipy.optimize import linprog
 from simplex import solve_lp_lu
 from test import generate_solvable_lp_linprog
 from matplotlib.colors import LinearSegmentedColormap
+from simplex import to_standard_form, simplex_iteration_lu, simplex_iteration_straight, big_m_method
 import matplotlib.pyplot as plt
 
 def compare_with_scipy(c, A, b):
     # 使用 solve_lp 求解
-    x_opt, obj_val = solve_lp_lu(c, A, b)
-    
+
+    basis, c_std, A_std, b_std = to_standard_form(c, A, b)
+
+    x_opt, solve_lp_status = simplex_iteration_straight(c_std, A_std, b_std, basis)
+    x_opt, solve_lp_status = simplex_iteration_lu(c_std, A_std, b_std, basis)
     # 使用 scipy.optimize.linprog 求解
     res = linprog(c, A_ub=A, b_ub=b, method='simplex')
     
     if x_opt is None:
-        solve_lp_status = obj_val
+        solve_lp_status = solve_lp_status
     else:
         solve_lp_status = "Optimal"
     
@@ -37,7 +41,7 @@ def compare_with_scipy(c, A, b):
         return False, f"Different statuses: solve_lp returned {solve_lp_status}, linprog returned {linprog_status}."
 
 def test_compare_with_scipy(num_tests=20):
-    sizes = [(9, 9), (12, 15), (15, 20), (20, 25), (25, 30), (30, 35)]
+    sizes = [(30, 35), (40, 40), (50, 50), (60, 60)]
     results = []
     success_rates = []
 

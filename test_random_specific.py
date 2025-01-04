@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-from simplex import solve_lp, remove_redundant_constraints
+from simplex import solve_lp_lu, remove_redundant_constraints
 from scipy.optimize import linprog
 
 def generate_random_lp(m, n):
@@ -24,7 +24,7 @@ def test_random_cases():
             c, A, b = generate_random_lp(m, n)
             try:
                 start_time = time.time()
-                solve_lp(c, A, b)
+                solve_lp_lu(c, A, b)
                 elapsed_time = time.time() - start_time
                 times.append(elapsed_time)
             except Exception:
@@ -56,7 +56,7 @@ def test_specific_cases():
                    [1, -1, 4],
                    [3, 1, 2]], dtype=float)
     b1 = np.array([2, 5, 6, 8], dtype=float)
-    x_opt, obj_val = solve_lp(c1, A1, b1)
+    x_opt, obj_val = solve_lp_lu(c1, A1, b1)
     print("正常求解:")
     print("Optimal solution:", x_opt)
     print("Optimal objective value:", obj_val)
@@ -68,7 +68,7 @@ def test_specific_cases():
     A2_filtered, b2_filtered = remove_redundant_constraints(A2, b2)
     print("使用linprog求解")
     print(linprog(c2, A_ub=A2, b_ub=b2))
-    x_opt, obj_val = solve_lp(c2, A2_filtered, b2_filtered)
+    x_opt, obj_val = solve_lp_lu(c2, A2_filtered, b2_filtered)
     print("有冗余约束:")
     print("Optimal solution:", x_opt)
     print("Optimal objective value:", obj_val)
@@ -77,7 +77,7 @@ def test_specific_cases():
     c3 = np.array([1, 1], dtype=float)
     A3 = np.array([[1, 1], [-1, -1]], dtype=float)
     b3 = np.array([1, -3], dtype=float)
-    x_opt, obj_val = solve_lp(c3, A3, b3)
+    x_opt, obj_val = solve_lp_lu(c3, A3, b3)
     print("无可行域:")
     print("Optimal solution:", x_opt)
     print("Optimal objective value:", obj_val)
@@ -86,7 +86,7 @@ def test_specific_cases():
     c4 = np.array([-1, 0], dtype=float)
     A4 = np.array([[1, -1], [-1, 1]], dtype=float)
     b4 = np.array([0, 0], dtype=float)
-    x_opt, obj_val = solve_lp(c4, A4, b4)
+    x_opt, obj_val = solve_lp_lu(c4, A4, b4)
     print("无界:")
     print("Optimal solution:", x_opt)
     print("Optimal objective value:", obj_val)

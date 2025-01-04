@@ -3,15 +3,15 @@ from scipy.linalg import lu_factor, lu_solve
 
 
 def to_standard_form(c, A, b):
-    """
-    Convert the LP problem to standard form by adding slack, Ruturn basis, c_std, A_std, b_std
-    """
+    # ...existing code...
+    # Convert ≤ constraints to standard form by adding slack variables
     m, n = A.shape
     I = np.eye(m)
     A_std = np.hstack((A, I))
     c_std = np.concatenate((c, np.zeros(m)))
     b_std = b.copy()
-    return c_std, A_std, b_std
+    basis = list(range(n, n+m))
+    return basis, c_std, A_std, b_std
 
 def check_slack_variables(x_opt, n):
     """
@@ -81,26 +81,16 @@ def remove_redundant_constraints(A, b, tol=1e-9):
     return A_filtered, b_filtered
 
 
-def big_m_method(c, A, b):
-    """
-    Apply the Big-M method to find an initial feasible basis.
-    """
-    m, n = A.shape
-    M = 1e6  # A large number for the Big-M method
+def big_m_method(c_std, A_std, b_std):
+    m, n = A_std.shape
+    A_art = np.hstack((A_std, np.eye(m)))
+    big_M = 1e6
+    c_art = np.concatenate((c_std, [big_M] * m))
+    basis = list(range(n, n+m))
+    x_init = np.zeros(n+m)  
+    x_init[basis] = b_std
+    return basis, x_init, c_art, A_art
 
-    # Extend the original problem with artificial variables
-    A_ext = np.hstack([A, np.eye(m)])
-    c_ext = np.concatenate([c, M * np.ones(m)])
-    basis = list(range(n, n + m))
-
-    # Solve the extended problem using simplex_iteration_lu
-    x_ext, status = simplex_iteration_lu(c_ext, A_ext, b, basis)
-    if status.startswith("Optimal solution"):
-        # Extract the initial feasible basis for the original problem
-        basis = [i for i in basis if i < n]
-        return basis, x_ext[:n], status
-    else:
-        return None, None, status
 
 def simplex_iteration_straight(c, A, b, basis):
     """
@@ -180,7 +170,7 @@ def simplex_iteration_lu(c, A, b, basis):
     1) No feasible region
     2) Unbounded problem
     """
-    max_iter = 50
+    max_iter = 500
     x = np.zeros_like(c)
     if len(basis) > len(b):
         return None, "Infeasible domain (basis size mismatch)"
@@ -255,7 +245,7 @@ def simplex_iteration_lu(c, A, b, basis):
     # If max_iter exceeded, treat as infeasible or stuck
     return None, "Infeasible or iteration limit reached"
 
-def solve_lp_lu_M(c, A, b):
+def solve_lp_lu(c, A, b):
     # 输入验证
     if not isinstance(A, np.ndarray) or not isinstance(b, np.ndarray) or not isinstance(c, np.ndarray):
         raise TypeError("Inputs must be numpy arrays")
@@ -266,19 +256,14 @@ def solve_lp_lu_M(c, A, b):
     if A.shape[1] != len(c):
         raise ValueError("Inconsistent dimensions between A and c")
         
-    # 使用 Big-M 方法找到初始可行解的 basis
-    c_std, A_std, b_std = to_standard_form(c, A, b)
-
-
-    basis, x_opt, status = big_m_method(c_std, A_std, b_std)
-    if status.startswith("Optimal solution"):
-        print(f"Initial feasible basis: {basis}")
-        print(f"Initial solution: {x_opt}")
-    else:
-        return None, status
+    basis, c_std, A_std, b_std = to_standard_form(c, A, b) 
+    # Without big_M method
+    
+    basis, x_init, c_std, A_std = big_m_method(c_std, A_std, b_std) 
+    # # With big_M method
     
     try:
-        x_opt, obj_val = simplex_iteration_lu(c=c_std, A=A_std, b=b_std, basis=basis)
+        x_opt, obj_val = simplex_iteration_lu(A=A_std, b=b_std, c=c_std, basis=basis)
     except np.linalg.LinAlgError:
         return None, "Numerical instability encountered"
     
@@ -287,7 +272,14 @@ def solve_lp_lu_M(c, A, b):
     
     # 只返回原始变量的解
     x_original = x_opt[:len(c)]
+    
+    # 计算正确的目标函数值（使用原始目标函数系数）
     obj_val = c @ x_original
+    
+    # 检查可行性
+    feasible, status = check_slack_variables(x_opt, len(c))
+    if not feasible:
+        return None, status
     
     return x_original, obj_val
 
@@ -303,7 +295,7 @@ def solve_lp_straight(c, A, b):
         raise ValueError("Inconsistent dimensions between A and c")
         
     basis, c_std, A_std, b_std = to_standard_form(c, A, b) # Without big_M method
-    # basis, x_init, c_std, A_std = big_m_method(c_std, A_std, b_std) # With big_M method
+    basis, x_init, c_std, A_std = big_m_method(c_std, A_std, b_std) # With big_M method
     
     try:
         # 修正参数顺序，确保维度匹配
@@ -348,8 +340,8 @@ def all_non_basis_non_negative(r, basis):
     return True
 
 
-# Example usage
 if __name__ == "__main__":
+    # Example usage
     c = np.array([-2, -3, 5], dtype=float)
     A = np.array([[2, -1, 1],
                   [1, 1, 3],
@@ -357,14 +349,7 @@ if __name__ == "__main__":
                   [3, 1, 2]], dtype=float)
     b = np.array([2, 5, 6, 8], dtype=float)
     
-    basis, x_opt, status = big_m_method(c, A, b)
-    if status.startswith("Optimal solution"):
-        print(f"Initial feasible basis: {basis}")
-        print(f"Initial solution: {x_opt}")
-    else:
-        print(f"Status: {status}")
-    
-    x_opt, obj_val = solve_lp_lu_M(c=c, A=A, b=b)
+    x_opt, obj_val = solve_lp_lu(c=c, A=A, b=b)
     if isinstance(obj_val, str):
         print(f"Solution: {x_opt}")
         print(f"Status: {obj_val}")
