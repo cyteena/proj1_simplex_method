@@ -35,7 +35,7 @@ def compare_with_scipy(c, A, b):
         return False, f"Different statuses: solve_lp returned {solve_lp_status}, linprog returned {linprog_status}."
 
 def test_compare_with_scipy():
-    sizes = [(5, 5), (5, 6), (7, 8), (9, 9), (10, 12), (12, 15), (20, 20)]
+    sizes = [(5, 5), (5, 6), (7, 8), (9, 9), (10, 12), (12, 15), (20, 20), (20, 40)]
     results = []
 
     for m, n in sizes:

@@ -1,5 +1,5 @@
 import numpy as np
-
+from scipy.linalg import lu_factor, lu_solve
 def to_standard_form(c, A, b):
     # ...existing code...
     # Convert ≤ constraints to standard form by adding slack variables
@@ -91,6 +91,7 @@ def big_m_method(c_std, A_std, b_std):
 
 
 
+
 def simplex_iteration(c, A, b, basis):
     """
     Simplex iteration that distinguishes two types of 'no solution':
@@ -105,7 +106,8 @@ def simplex_iteration(c, A, b, basis):
     # 计算初始解
     B = A[:, basis]
     try:
-        x_b = np.linalg.solve(B, b)
+        lu, piv = lu_factor(B)
+        x_b = lu_solve((lu, piv), b)
     except np.linalg.LinAlgError:
         return None, "Infeasible domain (singular basis)"
     
@@ -116,23 +118,25 @@ def simplex_iteration(c, A, b, basis):
         cb = c[basis]
         B = A[:, basis]
         try:
-            invB = np.linalg.inv(B)
+            lu, piv = lu_factor(B)
         except np.linalg.LinAlgError:
             return None, "Infeasible domain (singular basis)"
-        lambd = cb @ invB
+        lu1, piv1 = lu_factor(B.T)
+        lambd = lu_solve((lu1, piv1), cb.T).T
         r = c - lambd @ A
 
-        # If all reduced costs >= 0, we have an optimal solution
+        # If all non-basis reduced costs >= 0, we have an optimal solution
         if all_non_basis_non_negative(r, basis):
             return x, "Optimal solution = " + str(c @ x)
 
         # Choose entering variable -> change to bland's rule
         entering = first_negative(r, basis)
-
+        if entering is None:
+            return None, "No entering variable found (all reduced costs >= 0)"
 
         # Determine direction
         try:
-            d = np.linalg.solve(B, A[:, entering])
+            d = lu_solve((lu, piv), A[:, entering])
         except np.linalg.LinAlgError:
             return None, "Singular matrix encountered during direction calculation"
 
@@ -145,14 +149,19 @@ def simplex_iteration(c, A, b, basis):
         for i in range(len(basis)):
             if d[i] > 0:
                 ratios.append((x[basis][i] / d[i], i))
+        if not ratios:
+            # No positive direction => unbounded
+            return None, "Unbounded"
 
+        # Sort ratios to ensure Bland's rule
         leaving = min(ratios, key=lambda x: x[0])[1]
         basis[leaving] = entering
 
         # Update solution
         try:
             x = np.zeros_like(c)
-            x[basis] = np.linalg.solve(A[:, basis], b)
+            lu, piv = lu_factor(A[:, basis])
+            x[basis] = lu_solve((lu, piv), b)
         except np.linalg.LinAlgError:
             return None, "Singular matrix encountered during solution update"
 
