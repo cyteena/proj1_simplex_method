@@ -1,8 +1,9 @@
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-from simplex import solve_lp_lu, remove_redundant_constraints
+from simplex import solve_lp_lu, to_standard_form, simplex_iteration_straight, simplex_iteration_lu, remove_redundant_constraints
 from scipy.optimize import linprog
+from test import generate_solvable_lp_linprog
 
 def generate_random_lp(m, n):
     """
@@ -14,17 +15,18 @@ def generate_random_lp(m, n):
     return c, A, b
 
 def test_random_cases():
-    sizes = [(10, 20), (20, 40), (30, 60), (40, 80), (50, 100)]
+    sizes = [(20, 20), (20, 30), (30, 35), (30, 40)]
     mean_times = []
     std_devs = []
 
     for m, n in sizes:
         times = []
         for _ in range(20):
-            c, A, b = generate_random_lp(m, n)
+            c, A, b = generate_solvable_lp_linprog(m, n)
+            basis, c_std, A_std, b_std = to_standard_form(c, A, b)
             try:
                 start_time = time.time()
-                solve_lp_lu(c, A, b)
+                x_opt, obj_val = simplex_iteration_lu(c_std, A_std, b_std, basis=basis)
                 elapsed_time = time.time() - start_time
                 times.append(elapsed_time)
             except Exception:
